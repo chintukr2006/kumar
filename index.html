@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Smart Clothes Market Cart</title>
+  <script defer>
+    let clothesItems = [];
+
+    function saveToLocalStorage() {
+      localStorage.setItem('clothesItems', JSON.stringify(clothesItems));
+    }
+
+    function loadFromLocalStorage() {
+      const savedItems = localStorage.getItem('clothesItems');
+      if (savedItems) {
+        clothesItems = JSON.parse(savedItems);
+      }
+    }
+
+    function renderItems() {
+      const itemsDiv = document.getElementById('items');
+      itemsDiv.innerHTML = '';
+      if (clothesItems.length === 0) {
+        itemsDiv.innerHTML = '<p class="text-gray-500">No clothes added yet. Add some below!</p>';
+        return;
+      }
+      clothesItems.forEach((item, index) => {
+        itemsDiv.innerHTML += `
+          <div class="relative border p-6 rounded-xl bg-white shadow-xl hover:shadow-2xl transition-all duration-300 ease-in-out transform hover:scale-105">
+            <button onclick="deleteItem(${index})" class="absolute top-2 right-2 text-red-500 hover:text-red-700 text-xl">&times;</button>
+            <h3 style="text-align:center;" class="font-bold text-lg mb-2 text-blue-700">${item.name}</h3>
+            <p style="text-align:center;" class="text-gray-600">Price: ₹${item.price}</p>
+            <p style="text-align:center;" class="text-gray-600">Pieces: ${item.pieces}</p>
+          </div>
+        `;
+      });
+    }
+
+    function deleteItem(index) {
+      clothesItems.splice(index, 1);
+      saveToLocalStorage();
+      renderItems();
+      document.getElementById('result').innerHTML = '';
+    }
+
+    function knapsack(items, capacity) {
+      const n = items.length;
+      const dp = Array.from({ length: n + 1 }, () => Array(capacity + 1).fill(0));
+
+      for (let i = 1; i <= n; i++) {
+        for (let w = 0; w <= capacity; w++) {
+          if (items[i - 1].pieces <= w) {
+            dp[i][w] = Math.max(
+              items[i - 1].price + dp[i - 1][w - items[i - 1].pieces],
+              dp[i - 1][w]
+            );
+          } else {
+            dp[i][w] = dp[i - 1][w];
+          }
+        }
+      }
+
+      let w = capacity;
+      let selectedItems = [];
+      for (let i = n; i > 0; i--) {
+        if (dp[i][w] !== dp[i - 1][w]) {
+          selectedItems.push(items[i - 1]);
+          w -= items[i - 1].pieces;
+        }
+      }
+
+      return { maxValue: dp[n][capacity], selectedItems };
+    }
+
+    function calculateCart() {
+      const capacityInput = document.getElementById('capacity');
+      const capacity = parseInt(capacityInput.value);
+
+      if (!capacityInput.value || isNaN(capacity) || capacity <= 0) {
+        document.getElementById("d").textContent = "Please enter a valid weight!";
+        return;
+      }
+
+      document.getElementById("d").textContent = "";
+
+      if (clothesItems.length === 0) {
+        alert("Please add items to the market first.");
+        return;
+      }
+
+      const { maxValue, selectedItems } = knapsack(clothesItems, capacity);
+      const totalWeight = selectedItems.reduce((sum, item) => sum + item.pieces, 0);
+
+      const resultDiv = document.getElementById('result');
+      resultDiv.innerHTML = `
+        <p class="font-semibold text-xl mb-2">Total Value: ₹${maxValue}</p>
+        <p class="font-semibold text-lg mb-4">Total Pieces: ${totalWeight}</p>
+        <ul class="list-disc pl-5 space-y-2">
+          ${selectedItems.map(item => `<li class="text-gray-700">${item.name} (₹${item.price}, ${item.pieces} pcs)</li>`).join('')}
+        </ul>
+      `;
+
+      capacityInput.value = "";
+    }
+
+    function addItem() {
+      const name = document.getElementById('itemName').value.trim();
+      const price = parseFloat(document.getElementById('itemPrice').value);
+      const pieces = parseInt(document.getElementById('itemPieces').value);
+
+      if (!name || isNaN(price) || isNaN(pieces) || price <= 0 || pieces <= 0) {
+        alert("Please fill in all fields correctly.");
+        return;
+      }
+
+      clothesItems.push({ name, price, pieces });
+      saveToLocalStorage();
+      renderItems();
+
+      document.getElementById('itemName').value = '';
+      document.getElementById('itemPrice').value = '';
+      document.getElementById('itemPieces').value = '';
+    }
+
+    function resetMarket() {
+      if (confirm("Are you sure you want to remove all clothes?")) {
+        clothesItems = [];
+        saveToLocalStorage();
+        renderItems();
+        document.getElementById('result').innerHTML = '';
+      }
+    }
+
+    function sortItemsByName() {
+      clothesItems.sort((a, b) => a.name.localeCompare(b.name));
+      saveToLocalStorage();
+      renderItems();
+    }
+
+    window.onload = () => {
+      loadFromLocalStorage();
+      renderItems();
+    };
+  </script>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gradient-to-r from-pink-200 to-purple-100 min-h-screen text-gray-800">
+  <div class="max-w-4xl mx-auto p-6">
+    <h1 class="text-4xl font-bold text-center text-purple-800 mb-8">Smart Clothes Market Cart</h1>
+    <div id="d" class="text-center text-red-600 mb-6"></div>
+    <div class="emb-8 flex flex-wrap gap-4 justify-center">
+      <input id="capacity" type="number" placeholder="Max Pieces You Can Carry" class="border p-3 rounded-xl shadow-md w-64 focus:outline-none focus:ring-2 focus:ring-purple-400">
+      <button onclick="calculateCart()" class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-xl shadow-md transition-all">Optimize Cart</button>
+      <button onclick="resetMarket()" class="bg-red-500 hover:bg-red-600 text-white px-6 py-3 rounded-xl shadow-md transition-all">Reset Market</button>
+    </div>
+
+    <div class="bg-white p-8 rounded-xl shadow-md mb-10">
+      <h2 class="text-xl font-semibold text-center mb-4">Add New Cloth Item</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-6">
+        <input id="itemName" type="text" placeholder="Cloth Name" class="border p-3 rounded-xl shadow-md">
+        <input id="itemPrice" type="number" placeholder="Profit (₹)" class="border p-3 rounded-xl shadow-md">
+        <input id="itemPieces" type="number" placeholder="Number of Pieces" class="border p-3 rounded-xl shadow-md">
+        <button onclick="addItem()" class="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-xl shadow-md transition-all">Add Cloth</button>
+        <button onclick="sortItemsByName()" class="bg-yellow-500 hover:bg-yellow-600 text-white px-6 py-3 rounded-xl shadow-md transition-all">Sort by Name</button>
+      </div>
+    </div>
+    <div class="mt-6">
+      <h2 class="text-2xl font-semibold text-center mb-4 text-green-700">Optimal Clothes Selection</h2>
+      <div id="result" class="p-6 bg-green-100 rounded-xl shadow-lg"></div>
+    </div>
+    <div class="mb-10">
+      <h2 class="text-2xl font-semibold text-center mb-6 text-purple-700">Available Clothes</h2>
+      <div id="items" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 justify-center items-center"></div>
+      
+    </div>
+  </div>
+</body>
+</html>
